@@ -1,5 +1,7 @@
 import {useState} from 'react';
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
 export default function UploadBox() {
      const [form, setForm] = useState({
         patientName: '',
@@ -7,8 +9,13 @@ export default function UploadBox() {
         doctorName: '',
         diagnosis: '',
         notes: '',
-        file: null
+        prediction: '',
+        confidence: '',
+        file: null,
     });
+
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState('');
 
     const handleChange = (e) => {
         const { name, value, files } = e.target;
@@ -19,8 +26,65 @@ export default function UploadBox() {
     };
 
     const handleSubmit = (e) => {
-        console.log("Submitted data:", form);
-        //later AWS
+        setError('');
+
+        if (!form.patientName.trim()) return setError('Patient Name is required');
+        if (!form.prediction.trim()) return setError('Prediction is required');
+        if (!form.confidence.trim()) return setError('Confidence is required');
+        if (!form.file) return setError('Retinal image file is required');
+        
+        const conf = parseFloat(form.confidence);
+        if (isNaN(conf) || conf < 0 || conf > 1) {
+            return setError('Confidence must be a number between 0 and 1');
+        }
+        
+        setLoading(true);
+        try {
+            const formData = new FormData();
+            formData.append('patientName', form.patientName);
+            formData.append('patientID', form.patientID);
+            formData.append('doctorName', form.doctorName);
+            formData.append('diagnosis', form.diagnosis);
+            formData.append('notes', form.notes);
+            formData.append('prediction', form.prediction);
+            formData.append('confidence', form.confidence);
+            formData.append('file', form.file);
+
+            const res = await fetch(`${API_URL}/api/screen`, {
+                method: 'POST',
+                body: formData,
+            });
+
+            if(!res.ok) {
+                const errData = await res.json();
+                throw new Error(errData.error || 'Failed to submit form');
+            }
+
+            const {result} = await res.json();
+
+            onsubmit({
+                ...result,
+                // Local preview URL since mock S3 isn't publicly accessible yet
+                file: form.file, 
+            });
+
+            setForm({
+                patientName: '',
+                patientID: '',
+                doctorName: '',
+                diagnosis: '',
+                notes: '',
+                prediction: '',
+                confidence: '',
+                file: null,
+            });
+
+
+        } catch (err) {
+            setError('Error occurred while submitting the form');
+        } finally {
+            setLoading(false);
+        }
     };
 
     return (
@@ -53,7 +117,7 @@ export default function UploadBox() {
                 {/* Category */}
                 <select
                     name="diagnosis"
-                    value={form.category}
+                    value={form.diagnosis}
                     onChange={handleChange}
                     className="border p-2 rounded-lg"
                 >
@@ -85,10 +149,12 @@ export default function UploadBox() {
 
                 {/* Submit Button */}
                 <button
+                    onClick={handleSubmit}
+                    disabled={loading}
                     type="submit"
                     className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition"
                 >
-                    Submit
+                    {loading ? 'Saving' : 'Save Result'}
                 </button>
 
             </div>
