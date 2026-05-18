@@ -35,7 +35,15 @@ app.get('/health', async (req, res) => {
 
 app.post('/api/screen', upload.single('file'), async (req, res) => {
     try {
-        const { patientName, patientID, doctorName, diagnosis, notes } = req.body;
+        const {
+            patientName,
+            patientID,
+            doctorName,
+            diagnosis,
+            notes,
+            prediction,
+            confidence
+        } = req.body;
         if (!patientName) {return res.status(400).json({ error: 'patientName is required' });}
         if (!prediction)  return res.status(400).json({ error: 'prediction is required' });
         if (!confidence)  return res.status(400).json({ error: 'confidence is required' });
@@ -76,7 +84,7 @@ app.post('/api/screen', upload.single('file'), async (req, res) => {
 // ─── GET /api/results ─────────────────────────────────────────────────────────
 app.get('/api/results', async (req, res) => {
     try {
-        const results = await getResults({search: req.query.search || ''});
+        const results = await getResults(req.query.search || '');;
         res.json({ success: true, results });
     } catch (err) {
         console.error('[GET /api/results]', err);

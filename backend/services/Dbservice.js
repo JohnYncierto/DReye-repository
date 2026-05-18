@@ -46,44 +46,45 @@ export async function getResults(search) {
 */
 
 //uncomment for RDS(PostgreSQL):
-/*
+
 import pg from 'pg';
 const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
 
 export async function saveResult(data) {
     const {rows} = await pool.query(
-        'INSERT INTO screenings
-            (screening_id, patient_name, patient_id, doctor_name, diagnosis, notes, image_url, prediction, confidence, created_at)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW()) RETURNING *',
-        [data.screeningID, data.patientName, data.patientID, data.doctorName, data.diagnosis,
-         data.notes, data.imageURL, data.prediction, data.confidence]
-        
+        'INSERT INTO screenings(
+            screening_id,
+            patient_name,
+            patient_id,
+            doctor_name,
+            diagnosis,
+            notes,
+            image_url,
+            prediction,
+            confidence,
+            created_at
+        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,NOW()) RETURNING *',
+        [
+            data.screeningID,
+            data.patientName,
+            data.patientID,
+            data.doctorName,
+            data.diagnosis,
+            data.notes,
+            data.imageUrl,
+            data.prediction,
+            data.confidence
+        ]
     );
     return rows[0];
 }
 
 export async function getResults(search) {
     const {rows} = await pool.query(
-        'SELECT * FROM screenings 
-        WHERE ($1:: text IS NULL OR LOWER (patient_name) LIKE '%' || LOWER($1) || '%')
-        ORDER BY created_at DESC',
+        `SELECT * FROM screenings
+        WHERE ($1::text IS NULL OR LOWER(patient_name) LIKE '%' || LOWER($1) || '%')
+        ORDER BY created_at DESC`,
         [search || null]
     );
     return rows;
-}
-*/
-
-//-- MOCK(active)
-const store = [];
-
-export async function saveResult(data) {
-    const record = { ...data, createdAt: new Date().toISOString() };
-    store.push(record);
-    return record;
-}
-
-export async function getResults(search) {
-    if (!search) return store;
-    const q = search.toLowerCase();
-    return store.filter((r) => r.patientName.toLowerCase().includes(q) || r.doctorName.toLowerCase().includes(q));
 }
