@@ -52,29 +52,19 @@ const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
 
 export async function saveResult(data) {
     const {rows} = await pool.query(
-        'INSERT INTO screenings(
-            screening_id,
-            patient_name,
-            patient_id,
-            doctor_name,
-            diagnosis,
-            notes,
-            image_url,
-            prediction,
-            confidence,
-            created_at
-        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,NOW()) RETURNING *',
+        `INSERT INTO screenings
+        (screening_id, patient_name, patient_id, doctor_name, diagnosis, notes, image_url, prediction, confidence)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
         [
-            data.screeningID,
-            data.patientName,
-            data.patientID,
-            data.doctorName,
-            data.diagnosis,
-            data.notes,
-            data.imageUrl,
-            data.prediction,
-            data.confidence
-        ]
+            data.screeningID, 
+            data.patientName, 
+            data.patientID, 
+            data.doctorName, 
+            data.diagnosis, 
+            data.notes, 
+            data.imageUrl, 
+            data.prediction, 
+            data.confidence]
     );
     return rows[0];
 }
