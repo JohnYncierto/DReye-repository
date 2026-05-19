@@ -4,6 +4,14 @@ import multer from 'multer';
 import { v4 as uuidv4 } from 'uuid';
 import dotenv from 'dotenv';
 
+dotenv.config();
+console.log('AWS_REGION:', process.env.AWS_REGION || 'MISSING');
+console.log('AWS_ACCESS_KEY_ID:', process.env.AWS_ACCESS_KEY_ID ? 'loaded' : 'MISSING');
+console.log('AWS_SECRET_ACCESS_KEY:', process.env.AWS_SECRET_ACCESS_KEY ? 'loaded' : 'MISSING');
+console.log('S3_BUCKET_NAME:', process.env.S3_BUCKET_NAME ? 'loaded' : 'MISSING');
+console.log('DATABASE_URL:', process.env.DATABASE_URL ? 'loaded' : 'MISSING');
+
+
 import { uploadImageToStorage } from './services/storageService.js';
 import { saveResult, getResults } from './services/dbService.js';
 
@@ -12,7 +20,7 @@ dotenv.config();
 const app = express();
 const port = process.env.PORT || 5000;
 
-app.use(cors({origin: process.env.FRONTEND_URL || 'http://localhost:5713'}));
+app.use(cors({origin: process.env.FRONTEND_URL || 'http://localhost:5173'}));
 app.use(express.json());
 
 
@@ -33,7 +41,10 @@ app.get('/health', async (req, res) => {
 
 // ─── POST /api/screen ─────────────────────────────────────────────────────────
 
-app.post('/api/screen', upload.single('file'), async (req, res) => {
+app.post('/api/screen', upload.fields([
+    { name: 'image', maxCount: 1 }, 
+    { name: 'gradcam', maxCount: 1 }]), 
+    async (req, res) => {
     try {
         const {
             patientName,
@@ -41,39 +52,49 @@ app.post('/api/screen', upload.single('file'), async (req, res) => {
             doctorName,
             diagnosis,
             notes,
-            prediction,
             confidence
         } = req.body;
         if (!patientName) {return res.status(400).json({ error: 'patientName is required' });}
-        if (!prediction)  return res.status(400).json({ error: 'prediction is required' });
+        if (!diagnosis)  return res.status(400).json({ error: 'diagnosis is required' });
         if (!confidence)  return res.status(400).json({ error: 'confidence is required' });
-        if (!req.file) {return res.status(400).json({ error: 'Retinal image file is required' });}
-
-        const screeningID = uuidv4();
+        if (!req.files.image) {return res.status(400).json({ error: 'Retinal image file is required' });}
+        if (!req.files.gradcam) {return res.status(400).json({ error: 'Grad-CAM image file is required' });}
+        const screeningId = uuidv4();
+        const imageFile   = req.files.image[0];
+        const gradcamFile = req.files.gradcam[0]
 
         // 1. Upload image to storage
-        const imageUrl = await uploadImageToStorage({
-            screeningID,
-            fileBuffer: req.file.buffer,
-            mimetype: req.file.mimetype,
-            originalName: req.file.originalname
-        });
+        const [imageUrl, gradcamUrl] = await Promise.all([
+        uploadImageToStorage({
+            screeningId,
+            fileBuffer: imageFile.buffer,
+            mimetype: imageFile.mimetype,
+            originalName: imageFile.originalname,
+            folder: 'retinal_images'
+        }),
+        uploadImageToStorage({
+            screeningId,
+            fileBuffer:   gradcamFile.buffer,
+            mimetype:     gradcamFile.mimetype,
+            originalName: gradcamFile.originalname,
+            folder:       'gradcam-images',
+        }),
+        ]);
     
         // 2. Persist to DB
         const result = await saveResult({
-            screeningID,
+            screeningId,
             patientName,
             patientID: patientID || null,
             doctorName: doctorName || null,
             diagnosis: diagnosis || null,
             notes: notes || null,
             imageUrl,
-            prediction,
+            gradcamUrl,
             confidence: parseFloat(confidence),
         });
 
         res.status(201).json({success: true, result});
-
     } catch (err) {
         console.error('[POST /api/screen]', err);
         res.status(500).json({ error: err.message || 'Internal server error' });
@@ -84,7 +105,7 @@ app.post('/api/screen', upload.single('file'), async (req, res) => {
 // ─── GET /api/results ─────────────────────────────────────────────────────────
 app.get('/api/results', async (req, res) => {
     try {
-        const results = await getResults(req.query.search || '');;
+        const results = await getResults(req.query.search || null);;
         res.json({ success: true, results });
     } catch (err) {
         console.error('[GET /api/results]', err);
@@ -93,14 +114,14 @@ app.get('/api/results', async (req, res) => {
 });
 
 // ─── GET /api/results/:screeningID ─────────────────────────────────────────────────────────
-app.get('/api/results/:screeningID', async (req, res) => {
+app.get('/api/results/:screeningId', async (req, res) => {
     try {
         const results = await getResults({  });
-        const result = results.find(r => r.screeningID === req.params.screeningID);
+        const result = results.find(r => r.screeningId === req.params.screeningId);
         if (!result) return res.status(404).json({ error: 'Result not found' });
         res.json({ result });
     } catch (err) {
-        console.error(`[GET /api/results/${req.params.screeningID}]`, err);
+        console.error(`[GET /api/results/${req.params.screeningId}]`, err);
         res.status(500).json({ error: err.message || 'Internal server error' });
     }
 });

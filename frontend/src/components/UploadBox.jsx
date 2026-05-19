@@ -2,16 +2,16 @@ import {useState} from 'react';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
-export default function UploadBox() {
+export default function UploadBox({onSubmit}) {
      const [form, setForm] = useState({
         patientName: '',
         patientID: '',
         doctorName: '',
         diagnosis: '',
         notes: '',
-        prediction: '',
         confidence: '',
-        file: null,
+        image: null,
+        gradcam: null,
     });
 
     const [loading, setLoading] = useState(false);
@@ -29,12 +29,13 @@ export default function UploadBox() {
         setError('');
 
         if (!form.patientName.trim()) return setError('Patient Name is required');
-        if (!form.prediction.trim()) return setError('Prediction is required');
+        if (!form.diagnosis.trim()) return setError('Diagnosis is required');
         if (!form.confidence.trim()) return setError('Confidence is required');
-        if (!form.file) return setError('Retinal image file is required');
-        
+        if (!form.image) return setError('Retinal image file is required');
+        if (!form.gradcam) return setError('Grad-CAM image file is required');
+
         const conf = parseFloat(form.confidence);
-        if (isNaN(conf) || conf < 0 || conf > 1) {
+        if (isNaN(conf) || conf < 0 || conf > 100) {
             return setError('Confidence must be a number between 0 and 1');
         }
         
@@ -46,9 +47,9 @@ export default function UploadBox() {
             formData.append('doctorName', form.doctorName);
             formData.append('diagnosis', form.diagnosis);
             formData.append('notes', form.notes);
-            formData.append('prediction', form.prediction);
             formData.append('confidence', form.confidence);
-            formData.append('file', form.file);
+            formData.append('image', form.image);
+            formData.append('gradcam', form.gradcam);
 
             const res = await fetch(`${API_URL}/api/screen`, {
                 method: 'POST',
@@ -61,10 +62,11 @@ export default function UploadBox() {
             }
 
             const {result} = await res.json();
-
-            onsubmit({
+            console.log('result from API:', result);  // add this
+            onSubmit({
                 ...result,
-                file: form.file, 
+                imagePreview: URL.createObjectURL(form.image),
+                gradcamPreview: URL.createObjectURL(form.gradcam),
             });
 
             setForm({
@@ -73,12 +75,10 @@ export default function UploadBox() {
                 doctorName: '',
                 diagnosis: '',
                 notes: '',
-                prediction: '',
                 confidence: '',
-                file: null,
+                image: null,
+                gradcam: null,
             });
-
-
         } catch (err) {
             setError('Error occurred while submitting the form');
         } finally {
@@ -99,6 +99,15 @@ export default function UploadBox() {
                     name="patientName"
                     placeholder="Patient Name"
                     value={form.patientName}
+                    onChange={handleChange}
+                    className="border p-2 rounded-lg"
+                />
+
+                <input
+                    type="text"
+                    name="patientID"
+                    placeholder="Patient ID"
+                    value={form.patientID}
                     onChange={handleChange}
                     className="border p-2 rounded-lg"
                 />
@@ -128,13 +137,43 @@ export default function UploadBox() {
                     <option value="Proliferative DR">Proliferative DR</option>
                 </select>
 
-                {/*File Upload */}
+                {/* Confidence */}
                 <input
+                    type="number"
+                    name="confidence"
+                    placeholder="Confidence (0-100%)"
+                    value={form.confidence}
+                    onChange={handleChange}
+                    className="border p-2 rounded-lg"
+                    min="0"
+                    max="100"
+                    step="0.01"
+                />
+
+                {/*Retinal image Upload */}
+                <div>
+                    <label className="text-sm text-gray-500">Retinal Image: </label>
+                    <input
                     type="file"
-                    name="file"
+                    name="image"
+                    accept="image/*"
                     onChange={handleChange}
                     className="border p-2 rounded-lg"
                 />
+                </div>
+
+                {/* Grad-CAM image Upload */}
+                <div>
+                    <label className="text-sm text-gray-500">Grad-CAM Image: </label>
+                    <input
+                    type="file"
+                    name="gradcam"
+                    accept="image/*"
+                    onChange={handleChange}
+                    className="border p-2 rounded-lg"
+                />
+                </div>
+                
 
                 {/* Notes */}
                 <textarea

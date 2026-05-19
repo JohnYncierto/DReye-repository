@@ -12,17 +12,17 @@
 
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 
-const s3 = new S3Client({ 
-    region: process.env.AWS_REGION,
-    credentials: {
-        accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-    },
-});
+export async function uploadImageToStorage({ screeningId, fileBuffer, mimetype, originalName, folder }) {
+    const s3 = new S3Client({ 
+        region: process.env.AWS_REGION,
+        credentials: {
+            accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+            secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+        },
+    });
 
-export async function uploadImageToStorage({ screeningID, fileBuffer, mimetype, originalName }) {
      const ext = originalName.split('.').pop();
-     const key = `retinal_images/${screeningID}.${ext}`;
+     const key = `${folder}/${screeningId}.${ext}`;
      
     await s3.send(new PutObjectCommand({
         Bucket: process.env.S3_BUCKET_NAME,

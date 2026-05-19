@@ -1,46 +1,29 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import './App.css'
 
 import Navbar from './components/Navbar'
 import UploadBox from './components/UploadBox'  
 import Results from './components/Results'
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
 function App() {
   const [results, setResults] = useState([])
   const [search, setSearch] = useState("")
 
+  useEffect(() => {
+    fetch(`${API_URL}/api/results`)
+      .then(res => res.json())
+      .then(data => setResults(data.results || []))
+      .catch(err => console.error('Failed to load results:', err));
+  }, []);
+
   const handleNewResult = (data) => {
-    const newResult = {
-      id: Date.now(),
-      patientName: data.patientName,
-      doctorName: data.doctorName,
-      category: data.category,
-      notes: data.notes,
-      prediction: "Processing", // Placeholder, replace with actual prediction
-      confidence: 0.85, // Placeholder, replace with actual confidence
-      image: data.file ? URL.createObjectURL(data.file) : "", // Create a URL for the uploaded image
-    };
-
-    setResults((prev) => [newResult, ...prev]);
-
-    //Fave AI Processing (placeholder)
-    setTimeout(() => {
-      setResults((prev) =>
-        prev.map((r) =>
-          r.id === newResult.id
-            ? { 
-              ...r, 
-              prediction: "No DR (placeholder)", 
-              confidence: 0.92
-             } // Update with actual prediction and confidence
-            : r
-        )
-      );
-    }, 2000);
+    setResults((prev) => [{ ...data, id: Date.now() }, ...prev]);
   };
 
   const filteredResults = results.filter((r) => 
-    r.patientName.toLowerCase().includes(search.toLowerCase())
+  (r.patient_name || r.patientName || '').toLowerCase().includes(search.toLowerCase())
   );
 
   return (
@@ -68,7 +51,7 @@ function App() {
             <p className="text-gray-500">No results found.</p>
           ) : (
             filteredResults.map((r) => (
-              <Results key={r.id} results={r} />
+              <Results key={r.screening_id} results={r} />
             ))
           )
           }

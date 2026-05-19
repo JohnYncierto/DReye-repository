@@ -1,76 +1,59 @@
 /**
  * dbService.js
  * Persists and retrieves screening results.
- * Currently: uses an in-memory array (resets on server restart).
+ * Table schema (run this once to create the table):
  *
- * TO SWAP IN AWS DYNAMODB:
- *   1. npm install @aws-sdk/client-dynamodb @aws-sdk/lib-dynamodb
- *   2. Set env vars: AWS_REGION, DYNAMODB_TABLE_NAME
- *   3. Uncomment the DynamoDB block and remove the mock block.
- *
- * TO SWAP IN AWS RDS (PostgreSQL via pg):
- *   1. npm install pg
- *   2. Set env var: DATABASE_URL
- *   3. Use the RDS block instead.
- * 
+ *   CREATE TABLE screenings (
+ *     screening_id  TEXT PRIMARY KEY,
+ *     patient_name  TEXT NOT NULL,
+ *     patient_id    TEXT,
+ *     doctor_name   TEXT,
+ *     diagnosis     TEXT NOT NULL,
+ *     confidence    FLOAT NOT NULL,
+ *     notes         TEXT,
+ *     image_url     TEXT,
+ *     gradcam_url   TEXT,
+ *     created_at    TIMESTAMP DEFAULT NOW()
+ *   );
  */
-//Uncomment for DynamoDB:
-/*
-import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
-import { DynamoDBDocumentClient, PutCommand, ScanCommand } from "@aws-sdk/lib-dynamodb";
-
-
-const client = new DynamoDBClient({ region: process.env.AWS_REGION });
-const dynamo = DynamoDBDocumentClient.from(client);
-
-export async function saveResult(data) {
-  const item = { ...data, createdAt: new Date().toISOString() }; 
-  await dynamo.send(new PutCommand({
-    TableName: process.env.DYNAMODB_TABLE_NAME,
-    Item: item
-  }));
-  return item;
-}
-
-export async function getResults(search) {
-    const {Items} = await dynamo.send(new ScanCommand({
-        TableName: process.env.DYNAMODB_TABLE_NAME,
-    }));
-    if (search) {
-        const q = search.toLowerCase();
-        return Items.filter((r) => r.patientName.toLowerCase().includes(q) || r.doctorName.toLowerCase().includes(q));
-    }
-        return Items.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-}
-  
-*/
 
 //uncomment for RDS(PostgreSQL):
 
 import pg from 'pg';
-const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
+let pool;
+function getPool() {
+    if (!pool) {
+        pool = new pg.Pool({ 
+            connectionString: process.env.DATABASE_URL,
+            ssl: {
+                rejectUnauthorized: false
+            }
+        });
+    }
+    return pool;
+}
 
 export async function saveResult(data) {
-    const {rows} = await pool.query(
+    const {rows} = await getPool().query(
         `INSERT INTO screenings
-        (screening_id, patient_name, patient_id, doctor_name, diagnosis, notes, image_url, prediction, confidence)
+        (screening_id, patient_name, patient_id, doctor_name, diagnosis, notes, image_url, gradcam_url, confidence)
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
         [
-            data.screeningID, 
+            data.screeningId, 
             data.patientName, 
             data.patientID, 
             data.doctorName, 
             data.diagnosis, 
             data.notes, 
             data.imageUrl, 
-            data.prediction, 
+            data.gradcamUrl, 
             data.confidence]
     );
     return rows[0];
 }
 
 export async function getResults(search) {
-    const {rows} = await pool.query(
+    const {rows} = await getPool().query(
         `SELECT * FROM screenings
         WHERE ($1::text IS NULL OR LOWER(patient_name) LIKE '%' || LOWER($1) || '%')
         ORDER BY created_at DESC`,
