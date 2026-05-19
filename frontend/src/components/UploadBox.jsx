@@ -25,7 +25,7 @@ export default function UploadBox() {
         });
     };
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         setError('');
 
         if (!form.patientName.trim()) return setError('Patient Name is required');
@@ -64,7 +64,6 @@ export default function UploadBox() {
 
             onsubmit({
                 ...result,
-                // Local preview URL since mock S3 isn't publicly accessible yet
                 file: form.file, 
             });
 
