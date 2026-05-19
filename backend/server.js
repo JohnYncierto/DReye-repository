@@ -12,7 +12,7 @@ console.log('S3_BUCKET_NAME:', process.env.S3_BUCKET_NAME ? 'loaded' : 'MISSING'
 console.log('DATABASE_URL:', process.env.DATABASE_URL ? 'loaded' : 'MISSING');
 
 
-import { uploadImageToStorage } from './services/storageService.js';
+import { uploadImageToStorage, getPresignedUrl } from './services/storageService.js';
 import { saveResult, getResults } from './services/dbService.js';
 
 dotenv.config();
@@ -64,7 +64,7 @@ app.post('/api/screen', upload.fields([
         const gradcamFile = req.files.gradcam[0]
 
         // 1. Upload image to storage
-        const [imageUrl, gradcamUrl] = await Promise.all([
+        const [imageKey, gradcamKey] = await Promise.all([
         uploadImageToStorage({
             screeningId,
             fileBuffer: imageFile.buffer,
@@ -89,12 +89,24 @@ app.post('/api/screen', upload.fields([
             doctorName: doctorName || null,
             diagnosis: diagnosis || null,
             notes: notes || null,
-            imageUrl,
-            gradcamUrl,
+            imageUrl: imageKey,
+            gradcamUrl: gradcamKey,
             confidence: parseFloat(confidence),
         });
 
-        res.status(201).json({success: true, result});
+        const [imagePresigned, gradCamPresigned] = await Promise.all([
+            getPresignedUrl(imageKey),
+            getPresignedUrl(gradcamKey)
+        ]);
+
+        res.status(201).json({
+            success: true, 
+            result: {
+                ...result, 
+                image_url: imagePresigned, 
+                gradcam_url: gradCamPresigned
+            }
+        });
     } catch (err) {
         console.error('[POST /api/screen]', err);
         res.status(500).json({ error: err.message || 'Internal server error' });
@@ -105,7 +117,16 @@ app.post('/api/screen', upload.fields([
 // ─── GET /api/results ─────────────────────────────────────────────────────────
 app.get('/api/results', async (req, res) => {
     try {
-        const results = await getResults(req.query.search || null);;
+        const rows = await getResults(req.query.search || null);
+
+        const results = await Promise.all(rows.map(async (row) => {
+            const [imagePresigned, gradCamPresigned] = await Promise.all([
+                getPresignedUrl(row.image_url),
+                getPresignedUrl(row.gradcam_url)
+            ]);
+            return {...row, image_url: imagePresigned, gradcam_url: gradCamPresigned};
+        }));
+
         res.json({ success: true, results });
     } catch (err) {
         console.error('[GET /api/results]', err);
@@ -119,7 +140,13 @@ app.get('/api/results/:screeningId', async (req, res) => {
         const results = await getResults({  });
         const result = results.find(r => r.screeningId === req.params.screeningId);
         if (!result) return res.status(404).json({ error: 'Result not found' });
-        res.json({ result });
+
+        const [imagePresigned, gradCamPresigned] = await Promise.all([
+            getPresignedUrl(result.image_url),
+            getPresignedUrl(result.gradcam_url)
+        ]);
+
+        res.json({ result: { ...result, image_url: imagePresigned, gradcam_url: gradCamPresigned } });
     } catch (err) {
         console.error(`[GET /api/results/${req.params.screeningId}]`, err);
         res.status(500).json({ error: err.message || 'Internal server error' });

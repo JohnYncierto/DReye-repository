@@ -7,6 +7,9 @@ export default function Results({ results }) {
         })
         : 'N/A';
 
+        const imageSrc = results.imagePreview || results.image_url;
+        const gradcamSrc = results.gradcamPreview || results.gradcam_url;
+
     return (
         <div className="bg-white rounded-2xl shadow-md overflow-hidden">
 
@@ -14,9 +17,9 @@ export default function Results({ results }) {
             <div className="grid grid-cols-2">  
                 <div className ="flex flex-col">
                     <span className="text-sxs text-center text-gray-400 py-1 bg-gray-50">Retinal Image</span>
-                    {(results.imagePreview || results.image_url) && (
+                    {(imageSrc) && (
                         <img 
-                            src={results.imagePreview || results.image_url}
+                            src={imageSrc}
                             alt="Retinal"
                             className="object-cover h-48 w-full"    
                         />
@@ -24,9 +27,9 @@ export default function Results({ results }) {
                 </div>
                 <div className ="flex flex-col">
                     <span className="text-sxs text-center text-gray-400 py-1 bg-gray-50">Grad-CAM</span>
-                    {(results.gradcamPreview || results.gradcam_url) && (
+                    {(gradcamSrc) && (
                         <img
-                            src={results.gradcamPreview || results.gradcam_url}
+                            src={gradcamSrc}
                             alt="Grad-CAM"
                             className="object-cover h-48 w-full"
                         />
