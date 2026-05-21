@@ -4,31 +4,44 @@ import './App.css'
 import Navbar from './components/Navbar'
 import UploadBox from './components/UploadBox'  
 import Results from './components/Results'
+import Login from './components/Login'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 function App() {
   const [results, setResults] = useState([])
   const [search, setSearch] = useState("")
+  const [loggedIn, setLoggedIn] = useState(false);
 
   useEffect(() => {
+    if(!loggedIn) return;
     fetch(`${API_URL}/api/results`)
       .then(res => res.json())
       .then(data => setResults(data.results || []))
       .catch(err => console.error('Failed to load results:', err));
-  }, []);
+  }, [loggedIn]);
 
   const handleNewResult = (data) => {
     setResults((prev) => [{ ...data, id: Date.now() }, ...prev]);
+  };
+
+  const handleLogout = () => {
+    setLoggedIn(false);
+    setResults([]);
+    setSearch('');
   };
 
   const filteredResults = results.filter((r) => 
   (r.patient_name || r.patientName || '').toLowerCase().includes(search.toLowerCase())
   );
 
+  if(!loggedIn) {
+    return <Login onLogin={() => setLoggedIn(true)} />;
+  }
+
   return (
     <div className="min-h-screen bg-gray-100">
-      <Navbar />
+      <Navbar onLogout={handleLogout} />
       <div className="p-6 max-w-6xl mx-auto">
         <UploadBox onSubmit={handleNewResult} />
 

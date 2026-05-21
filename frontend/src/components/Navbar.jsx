@@ -1,4 +1,4 @@
-export default function Navbar() {
+export default function Navbar({onLogout}) {
 
 
     return (
@@ -8,6 +8,13 @@ export default function Navbar() {
                 <a href="#" className="hover:text-gray-300">Dashboard</a>
                 <a href="#" className="hover:text-gray-300">Results</a>
             </div>
+
+            <button
+                onClick={onLogout}
+                className="text-sm bg-red-600 text-white px-3 py-1 rounded-lg font-semibold hover:bg-red-700 transition"
+            >
+                Logout
+            </button>
         </nav>
 
     );
